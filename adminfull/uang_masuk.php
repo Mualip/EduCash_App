@@ -1,0 +1,268 @@
+<?php
+session_start();
+require 'function.php';
+include 'koneksi.php';
+
+// Cek apakah admin sudah login
+if (!isset($_SESSION['id_admin'])) {
+    header("Location: login.php");  // Arahkan ke halaman login jika admin belum login
+    exit;
+}
+
+// Ambil id_admin dari sesi
+$id_admin = $_SESSION['id_admin'];  // Ambil id_admin dari session
+
+// Inisialisasi variabel
+$siswa = [];
+$page = isset($_GET['page']) ? max(1, (int)$_GET['page']) : 1;
+$perPage = isset($_GET['per_page']) ? max(10, (int)$_GET['per_page']) : 10;
+$start = ($page - 1) * $perPage;
+$tahunAjaran = isset($_GET['tahun_ajaran']) ? $_GET['tahun_ajaran'] : '';
+$bulan = isset($_GET['bulan']) ? $_GET['bulan'] : '';
+
+// Ambil data tahun ajaran dari tabel kategori_pembayaran yang sesuai dengan id_admin
+$queryTahunAjaran = "
+    SELECT DISTINCT tahun_ajaran
+    FROM kategori_pembayaran
+    WHERE id_admin = '$id_admin'
+    ORDER BY tahun_ajaran DESC
+";
+$resultTahunAjaran = mysqli_query($mysqli, $queryTahunAjaran);
+
+// Query untuk mengambil data siswa dan total pembayaran dengan filter berdasarkan id_admin
+$query = "SELECT 
+            s.nis_siswa, s.nama_siswa, s.jenis_kelamin, s.kelas,
+            t.jenis_pembayaran, t.jenjang, t.total_pertahun, t.bulan, t.jumlah_bayar, t.diskon, t.tanggal_bayar, t.teller, t.tahun_ajaran
+          FROM siswa s
+          JOIN total t ON s.nis_siswa = t.nis_siswa
+          WHERE t.jenis_pembayaran = 'uang masuk'";
+
+// Kondisi untuk admin tertentu
+if ($id_admin != 1) {
+    $query .= " AND t.id_admin = '$id_admin'";  // Filter berdasarkan id_admin untuk admin lain
+}
+
+// Filter berdasarkan tahun ajaran jika ada
+if ($tahunAjaran) {
+    $query .= " AND t.tahun_ajaran = '$tahunAjaran'";
+}
+
+// Filter berdasarkan bulan jika ada
+if ($bulan) {
+    $query .= " AND t.bulan = '$bulan'";
+}
+
+$query .= " ORDER BY t.tanggal_bayar ASC LIMIT $start, $perPage";
+
+$result = mysqli_query($mysqli, $query);
+
+// Variabel untuk akumulasi total
+$totalJumlahBayar = 0; // Total jumlah yang sudah dibayarkan
+$totalDiskon = 0;      // Total diskon yang diberikan
+$totalSetelahDiskon = 0; // Total setelah diskon (kumulatif)
+$remainingPayment = 0; // Sisa pembayaran kumulatif
+
+while ($row = mysqli_fetch_assoc($result)) {
+    // Hitung sisa pembayaran berdasarkan total biaya pertahun dikurangi jumlah bayar + diskon
+    $remainingPayment = $row['total_pertahun'] - ($totalJumlahBayar + $row['jumlah_bayar'] + $totalDiskon + $row['diskon']);
+    
+    // Jika sisa pembayaran negatif, set ke 0
+    $row['sisa_pembayaran'] = $remainingPayment > 0 ? $remainingPayment : 0;
+    $siswa[] = $row;
+
+    // Akumulasi nilai total
+    $totalJumlahBayar += $row["jumlah_bayar"];
+    $totalDiskon += $row["diskon"];
+    $totalSetelahDiskon = $totalJumlahBayar + $totalDiskon;
+}
+
+// Hitung total data untuk pagination
+$totalQuery = "SELECT COUNT(*) 
+               FROM siswa s 
+               JOIN total t ON s.nis_siswa = t.nis_siswa 
+               WHERE t.jenis_pembayaran = 'spp'";
+
+// Kondisi untuk admin tertentu
+if ($id_admin != 1) {
+    $totalQuery .= " AND t.id_admin = '$id_admin'";  // Filter berdasarkan id_admin untuk admin lain
+}
+
+// Filter berdasarkan tahun ajaran jika ada
+if ($tahunAjaran) {
+    $totalQuery .= " AND t.tahun_ajaran = '$tahunAjaran'";
+}
+
+// Filter berdasarkan bulan jika ada
+if ($bulan) {
+    $totalQuery .= " AND t.bulan = '$bulan'";
+}
+
+$totalResult = mysqli_query($mysqli, $totalQuery);
+$totalRows = mysqli_fetch_row($totalResult)[0];
+$totalPages = ceil($totalRows / $perPage);
+?>
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Ciomas</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+    .text-nowrap {
+        white-space: nowrap; /* Mencegah teks turun ke baris baru */
+    }
+    .table thead th {
+        vertical-align: middle; /* Menjaga teks di header berada di tengah secara vertikal */
+    }
+    </style>
+</head>
+<body>
+<?php include "sidebar.php"; ?>
+<?php include "navbar.php"; ?>
+
+<div class="container-fluid mt-4">
+    <h6 class="font-weight-bold text-primary">Daftar Uang Masuk</h6>
+    <!-- Filter Form -->
+<form method="get" action="" class="mb-3">
+    <div class="row">
+        <div class="col-md-4">
+            <label for="tahun_ajaran">Tahun Ajaran:</label>
+            <select id="tahun_ajaran" name="tahun_ajaran" class="form-select">
+                <option value="">Pilih Tahun Ajaran</option>
+                <?php while ($row = mysqli_fetch_assoc($resultTahunAjaran)): ?>
+                    <option value="<?= $row['tahun_ajaran']; ?>" <?= $tahunAjaran == $row['tahun_ajaran'] ? 'selected' : '' ?>>
+                        <?= $row['tahun_ajaran']; ?>
+                    </option>
+                <?php endwhile; ?>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="bulan">Bulan:</label>
+            <select id="bulan" name="bulan" class="form-select">
+                <option value="">Pilih Bulan</option>
+                <option value="Juli" <?= $bulan == 'Juli' ? 'selected' : '' ?>>Juli</option>
+                <option value="Agustus" <?= $bulan == 'Agustus' ? 'selected' : '' ?>>Agustus</option>
+                <option value="September" <?= $bulan == 'September' ? 'selected' : '' ?>>September</option>
+                <option value="Oktober" <?= $bulan == 'Oktober' ? 'selected' : '' ?>>Oktober</option>
+                <option value="November" <?= $bulan == 'November' ? 'selected' : '' ?>>November</option>
+                <option value="Desember" <?= $bulan == 'Desember' ? 'selected' : '' ?>>Desember</option>
+                <option value="Januari" <?= $bulan == 'Januari' ? 'selected' : '' ?>>Januari</option>
+                <option value="Februari" <?= $bulan == 'Februari' ? 'selected' : '' ?>>Februari</option>
+                <option value="Maret" <?= $bulan == 'Maret' ? 'selected' : '' ?>>Maret</option>
+                <option value="April" <?= $bulan == 'April' ? 'selected' : '' ?>>April</option>
+                <option value="Mei" <?= $bulan == 'Mei' ? 'selected' : '' ?>>Mei</option>
+                <option value="Juni" <?= $bulan == 'Juni' ? 'selected' : '' ?>>Juni</option>
+            </select>
+        </div>
+        <div class="col-md-4">
+            <button type="submit" class="btn btn-primary mt-4">Filter</button>
+        </div>
+    </div>
+</form>
+
+    <div class="table-responsive">
+        <table class="table table-bordered table-hover">
+            <thead>
+            <tr class="text-center">
+                <th class="text-nowrap">No</th>
+                <th class="text-nowrap">NIS</th>
+                <th class="text-nowrap">Nama Siswa</th>
+                <th class="text-nowrap">Jenis Kelamin</th>
+                <th class="text-nowrap">Kelas</th>
+                <th class="text-nowrap">Jenis Pembayaran</th>
+                <th class="text-nowrap">Jenjang</th>
+                <th class="text-nowrap">Tahun Ajaran</th>
+                <th class="text-nowrap">Biaya Pertahun</th>
+                <th class="text-nowrap">Jumlah Bayar</th>
+                <th class="text-nowrap">Diskon</th>
+                <th class="text-nowrap">Total Bayar Setelah Diskon</th>
+                <th class="text-nowrap">Bulan</th>
+                <th class="text-nowrap">Tanggal Pembayaran</th>
+                <th class="text-nowrap">Sisa Pembayaran</th>
+                <th class="text-nowrap">Teller</th>
+            </tr>
+            </thead>
+            <tbody>
+    <?php $i = $start + 1; ?>
+    <?php foreach ($siswa as $row): ?>
+        <tr>
+            <td class="text-center"><?= $i; ?></td>
+            <td class="text-center"><?= $row["nis_siswa"]; ?></td>
+            <td><?= $row["nama_siswa"]; ?></td>
+            <td><?= $row["jenis_kelamin"]; ?></td>
+            <td><?= $row["kelas"]; ?></td>
+            <td><?= $row["jenis_pembayaran"]; ?></td>
+            <td><?= $row["jenjang"]; ?></td>
+            <td><?= $row["tahun_ajaran"]; ?></td>
+            <td><?= "Rp. " . number_format($row["total_pertahun"], 0, ',', '.'); ?></td>
+            <td><?= "Rp. " . number_format($row["jumlah_bayar"], 0, ',', '.'); ?></td>
+            <td><?= "Rp. " . number_format($row["diskon"], 0, ',', '.'); ?></td>
+            <td><?= "Rp. " . number_format($row["jumlah_bayar"] + $row["diskon"], 0, ',', '.'); ?></td>
+            <td><?= $row["bulan"]; ?></td>
+            <td><?= date('d-m-Y', strtotime($row["tanggal_bayar"])); ?></td>
+            <td><?= "Rp. " . number_format($row["sisa_pembayaran"], 0, ',', '.'); ?></td>
+            <td><?= $row["teller"]; ?></td>
+        </tr>
+        <?php $i++; ?>
+    <?php endforeach; ?>
+
+    <!-- Baris Total -->
+    <tr class="font-weight-bold bg-light">
+        <td colspan="9">Jumlah</td>
+        <td><?= "Rp. " . number_format($totalJumlahBayar, 0, ',', '.'); ?></td>
+        <td class="text-nowrap"><?= "Rp. " . number_format($totalDiskon, 0, ',', '.'); ?></td>
+        <td><?= "Rp. " . number_format($totalSetelahDiskon, 0, ',', '.'); ?></td>
+        <td colspan="3"></td>
+    </tr>
+</tbody>
+        </table>
+    </div>
+
+    <!-- Pagination Section -->
+    <div class="d-flex justify-content-between align-items-center mt-3">
+        <!-- Pagination -->
+        <ul class="pagination mb-7 mt-10 w-100 justify-content-center">
+            <!-- Tombol Sebelumnya -->
+            <?php if ($page > 1): ?>
+                <li class="page-item">
+                    <a href="?page=<?= $page - 1; ?>&per_page=<?= $perPage ?>&tahun_ajaran=<?= $tahunAjaran ?>&bulan=<?= $bulan ?>" class="page-link">‹</a>
+                </li>
+            <?php endif; ?>
+
+            <!-- Tautan Halaman -->
+            <?php 
+            $startPage = max(1, $page - 2);
+            $endPage = min($totalPages, $page + 2);
+
+            for ($p = $startPage; $p <= $endPage; $p++): 
+            ?>
+                <li class="page-item <?= $p == $page ? 'active' : '' ?>">
+                    <a href="?page=<?= $p; ?>&per_page=<?= $perPage ?>&tahun_ajaran=<?= $tahunAjaran ?>&bulan=<?= $bulan ?>" class="page-link"><?= $p; ?></a>
+                </li>
+            <?php endfor; ?>
+
+            <!-- Tombol Berikutnya -->
+            <?php if ($page < $totalPages): ?>
+                <li class="page-item">
+                    <a href="?page=<?= $page + 1; ?>&per_page=<?= $perPage ?>&tahun_ajaran=<?= $tahunAjaran ?>&bulan=<?= $bulan ?>" class="page-link">›</a>
+                </li>
+            <?php endif; ?>
+        </ul>
+
+        <!-- Dropdown Rows Per Page -->
+        <div class="d-flex align-items-center">
+            <label for="per_page" class="me-2 mb-0">Rows per page: </label>
+            <select id="per_page" class="form-select" style="width: auto;" onchange="window.location='?page=<?= $page; ?>&per_page=' + this.value + '&tahun_ajaran=<?= $tahunAjaran ?>&bulan=<?= $bulan ?>'">
+                <option value="10" <?= $perPage == 10 ? 'selected' : '' ?>>10</option>
+                <option value="25" <?= $perPage == 25 ? 'selected' : '' ?>>25</option>
+                <option value="50" <?= $perPage == 50 ? 'selected' : '' ?>>50</option>
+                <option value="100" <?= $perPage == 100 ? 'selected' : '' ?>>100</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

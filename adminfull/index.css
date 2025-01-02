@@ -1,0 +1,81 @@
+.no-decoration {
+  text-decoration: none;
+}
+
+
+
+
+
+.footer {
+  background-color: #343a40; /* Warna latar belakang */
+  color: white; /* Warna teks */
+}
+
+.footer a {
+  color: white; /* Warna teks link */
+  transition: color 0.3s; /* Transisi perubahan warna */
+}
+
+.footer a:hover {
+  color: #ffc107; /* Warna teks link saat dihover */
+  text-decoration: none; /* Hapus garis bawah */
+}
+
+.footer h5,
+.footer h6 {
+  margin-bottom: 15px; /* Jarak bawah untuk judul dan teks */
+}
+
+.footer .fs-2 {
+  font-size: 24px; /* Ukuran ikon */
+}
+
+.container-fluid.warna3 .fa-facebook:hover,
+.container-fluid.warna3 .fa-instagram:hover,
+.container-fluid.warna3 .fa-envelope:hover,
+.container-fluid.warna3 .fa-whatsapp:hover,
+.container-fluid.warna3 .fa-linkedin:hover {
+  color: #ffc107; /* Warna ikon saat dihover */
+}
+
+.container-fluid.warna3 .text-center {
+  margin-bottom: 10px; /* Jarak bawah untuk teks tengah */
+}
+
+.container-fluid.warna3 h3 {
+  margin-top: 5px; /* Jarak atas untuk judul */
+}
+@media (max-width: 768px) {
+  .table-responsive {
+      overflow-x: auto; /* Tambahkan scroll horizontal jika layar kecil */
+  }
+
+  table {
+      width: 100%; /* Tabel akan mengambil lebar penuh */
+  }
+
+  th, td {
+      white-space: nowrap; /* Hindari membungkus teks */
+  }
+
+  img {
+      max-width: 50px; /* Pastikan gambar tidak terlalu besar */
+      height: auto; /* Menjaga aspek rasio gambar */
+  }
+}
+th:nth-child(1),
+td:nth-child(1) {
+    width: 50px; /* Lebar untuk kolom No */
+}
+
+th:nth-child(2),
+td:nth-child(2) {
+    width: 100px; /* Lebar untuk kolom NIS */
+}
+
+th:nth-child(3),
+td:nth-child(3) {
+    width: 200px; /* Lebar untuk kolom Nama Siswa */
+}
+
+/* Tambahkan lebih banyak aturan untuk kolom lainnya sesuai kebutuhan */

@@ -1,0 +1,51 @@
+<?php
+// Include koneksi.php untuk menghubungkan ke database
+include "koneksi.php";
+
+// Ambil id_admin dari session (misalnya setelah login)
+session_start(); 
+$id_admin = $_SESSION['id_admin']; // Pastikan id_admin ada di session
+
+// Query untuk mengambil data pengguna berdasarkan id_admin
+$query = "SELECT nama_pengguna FROM users WHERE id_admin = ?";
+$stmt = $mysqli->prepare($query);
+$stmt->bind_param("i", $id_admin); // "i" untuk integer (id_admin)
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Jika pengguna ditemukan
+if ($result->num_rows > 0) {
+    $row = $result->fetch_assoc();
+    $nama_admin = $row['nama_pengguna']; // Ambil nama pengguna
+} else {
+    $nama_admin = "Admin"; // Default jika tidak ditemukan
+}
+
+$stmt->close();
+?>
+
+<?php
+// Include koneksi.php untuk menghubungkan ke database
+include "koneksi.php";
+
+// Ambil id_admin dari session (misalnya setelah login)
+session_start();
+$id_admin = $_SESSION['id_admin']; // Pastikan id_admin ada di session
+
+// Query untuk mengambil data pengguna yang aktif dengan kondisi aktif antara 1 dan 100
+$query = "SELECT nama_pengguna FROM users WHERE id_admin = ? AND aktif BETWEEN 1 AND 100"; // Memeriksa aktif antara 1 dan 100
+$stmt = $mysqli->prepare($query);
+$stmt->bind_param("i", $id_admin); // "i" untuk integer (id_admin)
+$stmt->execute();
+$result = $stmt->get_result();
+
+// Jika pengguna ditemukan dan aktif
+if ($result->num_rows > 0) {
+    $row = $result->fetch_assoc();
+    $nama_admin = $row['nama_pengguna']; // Ambil nama pengguna
+} else {
+    $nama_admin = "Admin"; // Default jika tidak ditemukan atau pengguna tidak aktif dalam rentang 1 sampai 100
+}
+
+$stmt->close();
+?>

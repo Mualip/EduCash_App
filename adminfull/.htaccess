@@ -1,0 +1,22 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /adminfull/
+
+    # Izinkan akses ke login.php tanpa login
+    RewriteCond %{REQUEST_URI} ^/admin/login\.php$
+    RewriteRule ^ - [L]
+
+    # Izinkan akses ke admin_full.php tanpa login
+    RewriteCond %{REQUEST_URI} ^/admin/index\.php$
+    RewriteRule ^ - [L]
+
+    # Izinkan akses ke index.php dan file lainnya di dalam /admin jika sudah login (cookie logged_in=true)
+    RewriteCond %{HTTP_COOKIE} logged_in=true
+    RewriteCond %{REQUEST_URI} ^/admin/.*$
+    RewriteRule ^ - [L]
+
+    # Redirect ke login.php jika cookie logged_in belum diset (belum login)
+    RewriteCond %{HTTP_COOKIE} !logged_in=true
+    RewriteRule ^/admin/.*$ /admin/login.php [R=302,L]
+
+</IfModule>
